@@ -186,9 +186,21 @@ enum
     + TUD_AUDIO10_DESC_TYPE_I_FORMAT_LEN(_nfreqs)\
     + TUD_AUDIO10_DESC_STD_AS_ISO_EP_LEN\
     + TUD_AUDIO10_DESC_CS_AS_ISO_EP_LEN\
+    /* Interface 1, Alternate 2 (speaker) */\
+    + TUD_AUDIO10_DESC_STD_AS_LEN\
+    + TUD_AUDIO10_DESC_CS_AS_INT_LEN\
+    + TUD_AUDIO10_DESC_TYPE_I_FORMAT_LEN(_nfreqs)\
+    + TUD_AUDIO10_DESC_STD_AS_ISO_EP_LEN\
+    + TUD_AUDIO10_DESC_CS_AS_ISO_EP_LEN\
     /* Interface 2, Alternate 0 (microphone) */\
     + TUD_AUDIO10_DESC_STD_AS_LEN\
     /* Interface 2, Alternate 1 (microphone) */\
+    + TUD_AUDIO10_DESC_STD_AS_LEN\
+    + TUD_AUDIO10_DESC_CS_AS_INT_LEN\
+    + TUD_AUDIO10_DESC_TYPE_I_FORMAT_LEN(_nfreqs)\
+    + TUD_AUDIO10_DESC_STD_AS_ISO_EP_LEN\
+    + TUD_AUDIO10_DESC_CS_AS_ISO_EP_LEN\
+    /* Interface 2, Alternate 2 (microphone) */\
     + TUD_AUDIO10_DESC_STD_AS_LEN\
     + TUD_AUDIO10_DESC_CS_AS_INT_LEN\
     + TUD_AUDIO10_DESC_TYPE_I_FORMAT_LEN(_nfreqs)\
@@ -223,6 +235,16 @@ enum
     TUD_AUDIO10_DESC_STD_AS_ISO_EP(/*_ep*/ _epout, /*_attr*/ (uint8_t) ((uint8_t)TUSB_XFER_ISOCHRONOUS | (uint8_t)TUSB_ISO_EP_ATT_ADAPTIVE), /*_maxEPsize*/ _epoutsize, /*_interval*/ 0x01, /*_syncep*/ 0x00),\
     /* Class-Specific AS Isochronous Audio Data Endpoint Descriptor(4.6.1.2) */\
     TUD_AUDIO10_DESC_CS_AS_ISO_EP(/*_attr*/ AUDIO10_CS_AS_ISO_DATA_EP_ATT_SAMPLING_FRQ, /*_lockdelayunits*/ AUDIO10_CS_AS_ISO_DATA_EP_LOCK_DELAY_UNIT_MILLISEC, /*_lockdelay*/ 0x0001),\
+    /* Standard AS Interface Descriptor(4.5.1) - Speaker Interface 1, Alternate 2 */\
+    TUD_AUDIO10_DESC_STD_AS_INT(/*_itfnum*/ (uint8_t)((_itfnum)+1), /*_altset*/ 0x02, /*_nEPs*/ 0x01, /*_stridx*/ _stridx),\
+    /* Class-Specific AS Interface Descriptor(4.5.2) */\
+    TUD_AUDIO10_DESC_CS_AS_INT(/*_termid*/ UAC1_ENTITY_SPK_INPUT_TERMINAL, /*_delay*/ 0x01, /*_formattype*/ AUDIO10_DATA_FORMAT_TYPE_I_PCM),\
+    /* Type I Format Type Descriptor(2.2.5) */\
+    TUD_AUDIO10_DESC_TYPE_I_FORMAT(/*_nrchannels*/ 0x02, /*_subframesize*/ CFG_TUD_AUDIO_FUNC_1_FORMAT_2_N_BYTES_PER_SAMPLE_RX, /*_bitresolution*/ CFG_TUD_AUDIO_FUNC_1_FORMAT_2_RESOLUTION_RX, /*_freqs*/ __VA_ARGS__),\
+    /* Standard AS Isochronous Audio Data Endpoint Descriptor(4.6.1.1) */\
+    TUD_AUDIO10_DESC_STD_AS_ISO_EP(/*_ep*/ _epout, /*_attr*/ (uint8_t) ((uint8_t)TUSB_XFER_ISOCHRONOUS | (uint8_t)TUSB_ISO_EP_ATT_ADAPTIVE), /*_maxEPsize*/ CFG_TUD_AUDIO10_FUNC_1_FORMAT_2_EP_SZ_OUT, /*_interval*/ 0x01, /*_syncep*/ 0x00),\
+    /* Class-Specific AS Isochronous Audio Data Endpoint Descriptor(4.6.1.2) */\
+    TUD_AUDIO10_DESC_CS_AS_ISO_EP(/*_attr*/ AUDIO10_CS_AS_ISO_DATA_EP_ATT_SAMPLING_FRQ, /*_lockdelayunits*/ AUDIO10_CS_AS_ISO_DATA_EP_LOCK_DELAY_UNIT_MILLISEC, /*_lockdelay*/ 0x0001),\
     /* Standard AS Interface Descriptor(4.5.1) - Microphone Interface 2, Alternate 0 */\
     TUD_AUDIO10_DESC_STD_AS_INT(/*_itfnum*/ (uint8_t)((_itfnum)+2), /*_altset*/ 0x00, /*_nEPs*/ 0x00, /*_stridx*/ _stridx),\
     /* Standard AS Interface Descriptor(4.5.1) - Microphone Interface 2, Alternate 1 */\
@@ -233,6 +255,16 @@ enum
     TUD_AUDIO10_DESC_TYPE_I_FORMAT(/*_nrchannels*/ 0x02, /*_subframesize*/ _nBytesPerSample_TX, /*_bitresolution*/ _nBitsUsedPerSample_TX, /*_freqs*/ __VA_ARGS__),\
     /* Standard AS Isochronous Audio Data Endpoint Descriptor(4.6.1.1) */\
     TUD_AUDIO10_DESC_STD_AS_ISO_EP(/*_ep*/ _epin, /*_attr*/ (uint8_t) ((uint8_t)TUSB_XFER_ISOCHRONOUS | (uint8_t)TUSB_ISO_EP_ATT_ASYNCHRONOUS), /*_maxEPsize*/ _epinsize, /*_interval*/ 0x01, /*_syncep*/ 0x00),\
+    /* Class-Specific AS Isochronous Audio Data Endpoint Descriptor(4.6.1.2) */\
+    TUD_AUDIO10_DESC_CS_AS_ISO_EP(/*_attr*/ AUDIO10_CS_AS_ISO_DATA_EP_ATT_SAMPLING_FRQ, /*_lockdelayunits*/ AUDIO10_CS_AS_ISO_DATA_EP_LOCK_DELAY_UNIT_MILLISEC, /*_lockdelay*/ 0x0001),\
+    /* Standard AS Interface Descriptor(4.5.1) - Microphone Interface 2, Alternate 2 */\
+    TUD_AUDIO10_DESC_STD_AS_INT(/*_itfnum*/ (uint8_t)((_itfnum)+2), /*_altset*/ 0x02, /*_nEPs*/ 0x01, /*_stridx*/ _stridx),\
+    /* Class-Specific AS Interface Descriptor(4.5.2) */\
+    TUD_AUDIO10_DESC_CS_AS_INT(/*_termid*/ UAC1_ENTITY_MIC_OUTPUT_TERMINAL, /*_delay*/ 0x01, /*_formattype*/ AUDIO10_DATA_FORMAT_TYPE_I_PCM),\
+    /* Type I Format Type Descriptor(2.2.5) */\
+    TUD_AUDIO10_DESC_TYPE_I_FORMAT(/*_nrchannels*/ 0x02, /*_subframesize*/ CFG_TUD_AUDIO_FUNC_1_FORMAT_2_N_BYTES_PER_SAMPLE_TX, /*_bitresolution*/ CFG_TUD_AUDIO_FUNC_1_FORMAT_2_RESOLUTION_TX, /*_freqs*/ __VA_ARGS__),\
+    /* Standard AS Isochronous Audio Data Endpoint Descriptor(4.6.1.1) */\
+    TUD_AUDIO10_DESC_STD_AS_ISO_EP(/*_ep*/ _epin, /*_attr*/ (uint8_t) ((uint8_t)TUSB_XFER_ISOCHRONOUS | (uint8_t)TUSB_ISO_EP_ATT_ASYNCHRONOUS), /*_maxEPsize*/ CFG_TUD_AUDIO10_FUNC_1_FORMAT_2_EP_SZ_IN, /*_interval*/ 0x01, /*_syncep*/ 0x00),\
     /* Class-Specific AS Isochronous Audio Data Endpoint Descriptor(4.6.1.2) */\
     TUD_AUDIO10_DESC_CS_AS_ISO_EP(/*_attr*/ AUDIO10_CS_AS_ISO_DATA_EP_ATT_SAMPLING_FRQ, /*_lockdelayunits*/ AUDIO10_CS_AS_ISO_DATA_EP_LOCK_DELAY_UNIT_MILLISEC, /*_lockdelay*/ 0x0001)
 
