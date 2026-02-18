@@ -70,6 +70,9 @@ static uint32_t blink_interval_ms = BLINK_NOT_MOUNTED;
 uint8_t mute[CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX + 1];   // +1 for master channel 0
 int16_t volume[CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX + 1];// +1 for master channel 0
 uint32_t current_sample_rate = 44100;
+const uint8_t resolutions_per_format[CFG_TUD_AUDIO_FUNC_1_N_FORMATS] = {CFG_TUD_AUDIO_FUNC_1_FORMAT_1_RESOLUTION_RX,
+                                                                        CFG_TUD_AUDIO_FUNC_1_FORMAT_2_RESOLUTION_RX};
+uint8_t current_resolution;
 
 // Buffer for speaker data
 uint16_t i2s_dummy_buffer[CFG_TUD_AUDIO_FUNC_1_EP_OUT_SW_BUF_SZ / 2];
@@ -468,6 +471,10 @@ bool tud_audio_set_itf_cb(uint8_t rhport, tusb_control_request_t const *p_reques
   current_alt_settings = alt;
 #endif
 
+  if (alt != 0) {
+    current_resolution = resolutions_per_format[alt - 1];
+  }
+
   return true;
 }
 
@@ -587,16 +594,21 @@ void audio_task(void) {
   if (start_ms == curr_ms) return;// not enough time
   start_ms = curr_ms;
 
-  uint16_t length = (uint16_t) (current_sample_rate / 1000 * CFG_TUD_AUDIO_FUNC_1_N_BYTES_PER_SAMPLE_RX * CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX);
+  uint16_t current_n_bytes_per_sample = CFG_TUD_AUDIO_FUNC_1_FORMAT_1_N_BYTES_PER_SAMPLE_RX;
+  if (current_resolution == CFG_TUD_AUDIO_FUNC_1_FORMAT_2_RESOLUTION_RX){
+    current_n_bytes_per_sample = CFG_TUD_AUDIO_FUNC_1_FORMAT_2_N_BYTES_PER_SAMPLE_RX;
+  }
+
+  uint16_t length = (uint16_t) (current_sample_rate / 1000 * current_n_bytes_per_sample * CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX);
 
   if (current_sample_rate == 44100 && (curr_ms % 10 == 0)) {
     // Take one more sample every 10 cycles, to have a average reading speed of 44.1
     // This correction is not needed in real world cases
-    length += CFG_TUD_AUDIO_FUNC_1_N_BYTES_PER_SAMPLE_RX * CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX;
+    length += (uint16_t) ((int) current_n_bytes_per_sample * CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX);
   } else if (current_sample_rate == 88200 && (curr_ms % 5 == 0)) {
     // Take one more sample every 5 cycles, to have a average reading speed of 88.2
     // This correction is not needed in real world cases
-    length += CFG_TUD_AUDIO_FUNC_1_N_BYTES_PER_SAMPLE_RX * CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX;
+    length += (uint16_t) ((int) current_n_bytes_per_sample * CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX);
   }
 
   tud_audio_read(i2s_dummy_buffer, length);
