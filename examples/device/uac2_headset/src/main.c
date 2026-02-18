@@ -568,6 +568,7 @@ void audio_task(void) {
   // If one is 16bit another is 24bit be care of LOUD noise !
   spk_data_size = tud_audio_read(spk_buf, sizeof(spk_buf));
   if (spk_data_size) {
+    #if 0
     if (current_resolution == 16) {
       int16_t *src = (int16_t *) spk_buf;
       int16_t *limit = (int16_t *) spk_buf + spk_data_size / 2;
@@ -593,6 +594,9 @@ void audio_task(void) {
       tud_audio_write((uint8_t *) mic_buf, (uint16_t) (spk_data_size / 2));
       spk_data_size = 0;
     }
+    #endif
+    tud_audio_write(spk_buf, (uint16_t)spk_data_size);
+    spk_data_size = 0;
   }
 }
 
