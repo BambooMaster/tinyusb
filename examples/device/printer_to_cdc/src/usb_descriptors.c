@@ -67,7 +67,7 @@ uint8_t const *tud_descriptor_device_cb(void) {
 //--------------------------------------------------------------------+
 
 // Endpoint numbers
-#if defined(TUD_ENDPOINT_ONE_DIRECTION_ONLY)
+#if CFG_TUD_ENDPOINT_ONE_DIRECTION_ONLY
   #define EPNUM_CDC_NOTIF   0x81
   #define EPNUM_CDC_OUT     0x02
   #define EPNUM_CDC_IN      0x83
