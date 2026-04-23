@@ -8,8 +8,11 @@ from multiprocessing import Pool
 # Mandatory Dependencies that is always fetched
 # path, url, commit, family (Alphabet sorted by path)
 deps_mandatory = {
+    'lib/fatfs': ['https://github.com/abbrev/fatfs.git',
+                  '30ca13c62615df0d2e9104ab41256985b96590c1',
+                  'all'],
     'lib/FreeRTOS-Kernel': ['https://github.com/FreeRTOS/FreeRTOS-Kernel.git',
-                            'cc0e0707c0c748713485b870bb980852b210877f',
+                            '9b777ae5c5b8e9e456065a00294d1e5f5f9facf5',
                             'all'],
     'lib/lwip': ['https://github.com/lwip-tcpip/lwip.git',
                  '159e31b689577dbf69cf0683bbaffbd71fa5ee10',
@@ -79,6 +82,9 @@ deps_optional = {
     'hw/mcu/nxp/mcux-devices-rt': ['https://github.com/nxp-mcuxpresso/mcux-devices-rt',
                             'dba2b523c9df61f3330bd186242f8210a8e47c45',
                             'imxrt'],
+    'hw/mcu/raspberry_pi/FreeRTOS-Kernel': ['https://github.com/raspberrypi/FreeRTOS-Kernel.git',
+                                           '4f7299d6ea746b27a9dd19e87af568e34bd65b15',
+                                           'rp2040'],
     'hw/mcu/raspberry_pi/Pico-PIO-USB': ['https://github.com/sekigon-gonnoc/Pico-PIO-USB.git',
                                          '675543bcc9baa8170f868ab7ba316d418dbcf41f',
                                          'rp2040'],
@@ -284,6 +290,11 @@ deps_optional = {
                          'lpc55'],
 }
 
+# Files to remove after cloning to avoid conflicts with TinyUSB's custom versions
+deps_remove_files = {
+    'lib/fatfs': ['source/ffconf.h'],
+}
+
 # combined 2 deps
 deps_all = {**deps_mandatory, **deps_optional}
 
@@ -328,6 +339,13 @@ def get_a_dep(d):
     if commit != head:
         run_cmd(f"{git_cmd} fetch --depth 1 origin {commit}")
         run_cmd(f"{git_cmd} checkout FETCH_HEAD")
+
+    # Remove files that conflict with TinyUSB's custom versions
+    if d in deps_remove_files:
+        for f in deps_remove_files[d]:
+            fp = p / f
+            if fp.exists():
+                fp.unlink()
 
     return 0
 
