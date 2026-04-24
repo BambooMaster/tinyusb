@@ -80,17 +80,21 @@ typedef struct {
   #define MUSB_PIPE_COUNT (2u * TUP_DCD_ENDPOINT_MAX - 1u)
 #endif
 
-// EP0 control-transfer state (§21.1.4). The IRQ handler derives direction
-// and phase from this state instead of the cached SETUP packet.
+// EP0 control-transfer phase (§21.1.4). The phase is set from the SETUP
+// packet's direction/wLength when the SETUP IRQ fires, and drives what each
+// subsequent IRQ or edpt0_xfer call is allowed to do.
 enum {
   EP0_STATE_IDLE = 0,    // no active control transfer
-  EP0_STATE_SETUP_RECEIVED,  // SETUP received, awaiting DATA or STATUS call from usbd
-  EP0_STATE_TX,          // DATA IN armed (TXRDY set), awaiting send-ACK IRQ
-  EP0_STATE_RX,          // DATA OUT armed (RXRDY cleared), awaiting host-packet IRQ
-  EP0_STATE_STATUS,      // STATUS IN-ZLP armed (DATAEND set), awaiting confirmation IRQ
+  EP0_STATE_TX,          // DATA IN stage  (Read req data; STATUS-OUT-ZLP absorbed here too)
+  EP0_STATE_RX,          // DATA OUT stage (Write req data)
+  EP0_STATE_STATUS_IN,   // STATUS IN — device sends IN-ZLP to host; awaits send-ACK IRQ
+  EP0_STATE_STATUS_OUT,
+  EP0_STATE_STATUS_OUT_REQUESTED,
+  EP0_STATE_STATUS_OUT_SENT
 };
 
 typedef struct {
+  uint16_t remaining_ctrl; /* The number of bytes remaining in data stage of control transfer. */
   uint8_t ep0_state;
   uint8_t pending_addr;  // new USB address latched by dcd_set_address, applied when STATUS IN completes
   pipe_state_t pipe[MUSB_PIPE_COUNT];
@@ -366,65 +370,65 @@ static bool edpt_n_xfer(uint8_t rhport, uint8_t ep_addr, void *buffer, uint16_t 
 //                                                              when DATAEND was set on the
 //                                                              last DATA IN packet)
 static bool edpt0_xfer(uint8_t rhport, uint8_t ep_addr, uint8_t *buffer, uint16_t total_bytes, bool is_isr) {
-  TU_ASSERT(total_bytes <= CFG_TUD_ENDPOINT0_SIZE);
+  TU_ASSERT(total_bytes <= CFG_TUD_ENDPOINT0_SIZE); /* Current implementation supports for only up to 64 bytes. */
   musb_regs_t* musb_regs = MUSB_REGS(rhport);
   musb_ep_csr_t* ep_csr = get_ep_csr(musb_regs, 0);
   pipe_state_t* pipe0 = pipe_get(0, TUSB_DIR_OUT);
   const unsigned dir_in = tu_edpt_dir(ep_addr);
 
-  if (total_bytes == 0) {
-    // STATUS phase
-    if (_dcd.ep0_state == EP0_STATE_IDLE) {
-      // Stale STATUS call (e.g. new SETUP arrived between DATA and STATUS).
-      TU_LOG1("Drop stale CONTROL_STAGE_ACK\r\n");
-      return true;
+  switch (_dcd.ep0_state) {
+    case EP0_STATE_TX:
+    case EP0_STATE_RX: {
+      TU_ASSERT(dir_in ? _dcd.ep0_state == EP0_STATE_TX : _dcd.ep0_state == EP0_STATE_RX);
+      volatile void *fifo_ptr = &musb_regs->fifo[0];
+      if (dir_in) {
+        // DATA IN: load FIFO, set TXRDY. Add DATAEND for a short packet (ends
+        // the data stage per USB short-packet rule).
+        tu_hwfifo_write(fifo_ptr, buffer, total_bytes, NULL);
+        pipe0->buf = buffer + total_bytes;
+        pipe0->length = total_bytes;
+        pipe0->remaining = 0;
+
+        _dcd.remaining_ctrl -= total_bytes;
+        if (_dcd.remaining_ctrl == 0) {
+          ep_csr->csr0l = MUSB_CSRL0_TXRDY | MUSB_CSRL0_DATAEND; // last packet, also set DATAEND to end the data stage
+        } else {
+          ep_csr->csr0l = MUSB_CSRL0_TXRDY;
+        }
+      } else {
+        // DATA OUT: arm, ack RXRDY so host can send DATA OUT.
+        pipe0->buf = buffer;
+        pipe0->length = total_bytes;
+        pipe0->remaining = total_bytes;
+        ep_csr->csr0l = MUSB_CSRL0_RXRDYC;
+      }
+      break;
     }
-    if (dir_in) {
-      // STATUS IN (Write/zero-data req): send ZLP IN with DATAEND. The
-      // xfer_complete event fires from process_ep0 on the confirmation IRQ.
-      pipe0->buf = NULL;
-      pipe0->length = 0;
-      pipe0->remaining = 0;
-      _dcd.ep0_state = EP0_STATE_STATUS;
+
+    case EP0_STATE_STATUS_IN:
+      TU_ASSERT(dir_in && total_bytes == 0); // only STATUS IN allowed
       ep_csr->csr0l = MUSB_CSRL0_RXRDYC | MUSB_CSRL0_DATAEND;
-    } else {
-      // STATUS OUT (Read req): HW already auto-handled via DATAEND on the last
-      // DATA IN packet. Fire complete inline; the actual OUT-ZLP IRQ that
-      // follows is silently absorbed in process_ep0.
+      break;
+
+    case EP0_STATE_STATUS_OUT:
+      TU_ASSERT(!dir_in && total_bytes == 0); // only STATUS OUT allowed
+      _dcd.ep0_state = EP0_STATE_STATUS_OUT_REQUESTED;
+      break;
+
+    case EP0_STATE_STATUS_OUT_SENT:
+      // status is already sent to host, complete it here
       _dcd.ep0_state = EP0_STATE_IDLE;
       dcd_event_xfer_complete(rhport, ep_addr, 0, XFER_RESULT_SUCCESS, is_isr);
-    }
-    return true;
+      break;
+
+    default: break;
   }
 
-  // DATA phase — valid from SETUP_RECEIVED (first chunk / Write) or TX
-  // (subsequent Read chunk). Direction+length drives the next state.
-  TU_ASSERT(_dcd.ep0_state == EP0_STATE_SETUP_RECEIVED || _dcd.ep0_state == EP0_STATE_TX);
-  volatile void *fifo_ptr = &musb_regs->fifo[0];
-  if (dir_in) {
-    // DATA IN: load FIFO, set TXRDY. Add DATAEND for a short packet (ends
-    // the data stage per USB short-packet rule).
-    tu_hwfifo_write(fifo_ptr, buffer, total_bytes, NULL);
-    pipe0->buf = buffer + total_bytes;
-    pipe0->length = total_bytes;
-    pipe0->remaining = 0;
-    _dcd.ep0_state = EP0_STATE_TX;
-    ep_csr->csr0l = (total_bytes < CFG_TUD_ENDPOINT0_SIZE)
-                    ? (MUSB_CSRL0_TXRDY | MUSB_CSRL0_DATAEND)
-                    : MUSB_CSRL0_TXRDY;
-  } else {
-    // DATA OUT: arm, ack RXRDY so host can send DATA OUT.
-    pipe0->buf = buffer;
-    pipe0->length = total_bytes;
-    pipe0->remaining = total_bytes;
-    _dcd.ep0_state = EP0_STATE_RX;
-    ep_csr->csr0l = MUSB_CSRL0_RXRDYC;
-  }
   return true;
 }
 
 // 21.1.5: endpoint 0 service routine as peripheral. Drives the IDLE /
-// SETUP_RECEIVED / TX / RX / STATUS machine; direction on each IRQ is
+// IDLE / TX / RX / STATUS machine; direction on each IRQ is
 // implied by the state.
 static void process_ep0(uint8_t rhport) {
   musb_regs_t* musb_regs = MUSB_REGS(rhport);
@@ -440,96 +444,103 @@ static void process_ep0(uint8_t rhport) {
 
   if (csrl & MUSB_CSRL0_SETEND) {
     // Host aborted the current control transfer (new SETUP or premature STATUS).
+    // do nothing, it is probably another setup packet, usbd will reset its state.
     ep_csr->csr0l = MUSB_CSRL0_SETENDC;
-    if (_dcd.ep0_state == EP0_STATE_TX || _dcd.ep0_state == EP0_STATE_RX) {
-      const uint8_t dir_ep_addr = (_dcd.ep0_state == EP0_STATE_TX) ? TUSB_DIR_IN_MASK : 0;
-      pipe0->buf = NULL;
-      dcd_event_xfer_complete(rhport,
-                              dir_ep_addr,
-                              pipe0->length - pipe0->remaining,
-                              XFER_RESULT_SUCCESS, true);
-    }
     _dcd.ep0_state = EP0_STATE_IDLE;
-    if (!(csrl & MUSB_CSRL0_RXRDY)) return;  /* no SETUP waiting behind it */
+    if (!(csrl & MUSB_CSRL0_RXRDY)) {
+      return; /* no SETUP waiting behind it */
+    }
   }
 
+  // Receive Data (Setup or OUT)
   if (csrl & MUSB_CSRL0_RXRDY) {
     const uint16_t count0 = ep_csr->count0;
+    switch (_dcd.ep0_state) {
+      case EP0_STATE_IDLE:
+        TU_ASSERT(sizeof(tusb_control_request_t) == count0, );
+        union {
+          tusb_control_request_t req;
+          uint32_t               u32[2];
+        } setup_packet;
+        setup_packet.u32[0] = musb_regs->fifo[0];
+        setup_packet.u32[1] = musb_regs->fifo[0];
 
-    if (_dcd.ep0_state == EP0_STATE_IDLE) {
-      // SETUP token (count0 == 8). A count0 == 0 here would be a stray
-      // STATUS-OUT ZLP that bypassed the absorbing path below; silently ack.
-      if (count0 == 0) {
-        ep_csr->csr0l = MUSB_CSRL0_RXRDYC;
-        return;
+        _dcd.remaining_ctrl = setup_packet.req.wLength;
+
+        // Pick the next phase directly from the SETUP packet: Read → TX,
+        // Write → RX, zero-data → STATUS_IN. For Read, also ack SETUP's RXRDY
+        // now so the host can start IN tokens immediately; Write/zero-data
+        // leave it set so HW NAKs OUT tokens until edpt0_xfer clears it.
+        if (setup_packet.req.wLength == 0) {
+          _dcd.ep0_state = EP0_STATE_STATUS_IN;
+        } else if (tu_edpt_dir(setup_packet.req.bmRequestType)) {
+          _dcd.ep0_state = EP0_STATE_TX;
+          ep_csr->csr0l  = MUSB_CSRL0_RXRDYC;
+        } else {
+          _dcd.ep0_state = EP0_STATE_RX;
+        }
+        dcd_event_setup_received(rhport, (const uint8_t *)&setup_packet.req, true);
+        break;
+
+      case EP0_STATE_RX: {
+        /* DATA OUT: drain armed buffer, complete. Stay in RX — usbd posts
+         * edpt0_xfer(STATUS IN) next which transitions us to STATUS_IN. */
+        const uint16_t len = tu_min16(tu_min16(pipe0->remaining, 64), count0);
+        if (len) {
+          tu_hwfifo_read(&musb_regs->fifo[0], pipe0->buf, len, NULL);
+          pipe0->remaining -= len;
+          _dcd.remaining_ctrl -= len;
+        }
+
+        if (_dcd.remaining_ctrl == 0) {
+          // last packet, leave it RXRDYC to edpt0_xfer()
+          _dcd.ep0_state = EP0_STATE_STATUS_IN;
+        } else {
+          ep_csr->csr0l = MUSB_CSRL0_RXRDYC;
+        }
+        dcd_event_xfer_complete(rhport, tu_edpt_addr(0, TUSB_DIR_OUT), pipe0->length - pipe0->remaining,
+                                XFER_RESULT_SUCCESS, true);
+        break;
       }
-      TU_ASSERT(sizeof(tusb_control_request_t) == count0,);
-      union {
-        tusb_control_request_t req;
-        uint32_t u32[2];
-      } setup;
-      setup.u32[0] = musb_regs->fifo[0];
-      setup.u32[1] = musb_regs->fifo[0];
-      _dcd.ep0_state = EP0_STATE_SETUP_RECEIVED;
-      // Ack RXRDY now for Read requests so host can start sending IN tokens.
-      // Write / zero-data leave it set — HW NAKs OUT tokens until edpt0_xfer
-      // (OUT or STATUS IN) clears it.
-      if (setup.req.wLength > 0 && tu_edpt_dir(setup.req.bmRequestType)) {
-        ep_csr->csr0l = MUSB_CSRL0_RXRDYC;
-      }
-      dcd_event_setup_received(rhport, (const uint8_t*)&setup.req, true);
-      return;
+
+      default: break;
     }
 
-    if (_dcd.ep0_state == EP0_STATE_RX) {
-      /* DATA OUT: drain armed buffer, complete, return to SETUP_RECEIVED for STATUS call. */
-      const uint16_t len = tu_min16(tu_min16(pipe0->remaining, 64), count0);
-      if (len) {
-        tu_hwfifo_read(&musb_regs->fifo[0], pipe0->buf, len, NULL);
-        pipe0->remaining -= len;
-      }
-      pipe0->buf = NULL;
-      _dcd.ep0_state = EP0_STATE_SETUP_RECEIVED;
-      ep_csr->csr0l = MUSB_CSRL0_RXRDYC;
-      dcd_event_xfer_complete(rhport,
-                              tu_edpt_addr(0, TUSB_DIR_OUT),
-                              pipe0->length - pipe0->remaining,
-                              XFER_RESULT_SUCCESS, true);
-      return;
-    }
-
-    // State SETUP_RECEIVED or TX with count0 == 0: stray STATUS-OUT ZLP for
-    // a Read request whose inline complete already dropped state to IDLE.
-    if (count0 == 0) {
-      ep_csr->csr0l = MUSB_CSRL0_RXRDYC;
-    }
     return;
   }
 
-  /* CSR0L == 0: TXRDY cleared (data sent) or STATUS confirmation. */
-  if (_dcd.ep0_state == EP0_STATE_STATUS) {
-    // STATUS IN confirmed by host's ACK of our IN-ZLP.
-    if (_dcd.pending_addr) {
-      musb_regs->faddr = _dcd.pending_addr;
-      _dcd.pending_addr = 0;
-    }
-    _dcd.ep0_state = EP0_STATE_IDLE;
-    dcd_event_xfer_complete(rhport,
-                            tu_edpt_addr(0, TUSB_DIR_IN),
-                            0, XFER_RESULT_SUCCESS, true);
-    return;
-  }
+  /* When CSRL0 is zero, it means that either
+ * - completion of sending any length packet TxPktRdy clear
+ * - or status stage is complete (ZLP) after DataEnd is set */
+  switch (_dcd.ep0_state) {
+    case EP0_STATE_TX:
+      if (_dcd.remaining_ctrl == 0) {
+        // last packet
+        _dcd.ep0_state = EP0_STATE_STATUS_OUT;
+      }
+      dcd_event_xfer_complete(rhport, 0x80, pipe0->length, XFER_RESULT_SUCCESS, true);
+      break;
 
-  if (_dcd.ep0_state == EP0_STATE_TX) {
-    /* DATA IN packet sent. For short packets DATAEND was set; the STATUS-OUT
-     * ZLP IRQ that follows lands in the count0==0 branch above. Return to
-     * SETUP_RECEIVED so usbd can post the next chunk or the STATUS call. */
-    pipe0->buf = NULL;
-    _dcd.ep0_state = EP0_STATE_SETUP_RECEIVED;
-    dcd_event_xfer_complete(rhport,
-                            tu_edpt_addr(0, TUSB_DIR_IN),
-                            pipe0->length - pipe0->remaining,
-                            XFER_RESULT_SUCCESS, true);
+    case EP0_STATE_STATUS_OUT:
+      // edpt0_xfer() for this is not yet requested, let it call xfer_complete() later
+      _dcd.ep0_state = EP0_STATE_STATUS_OUT_SENT;
+      break;
+
+    case EP0_STATE_STATUS_OUT_REQUESTED:
+      _dcd.ep0_state = EP0_STATE_IDLE;
+      dcd_event_xfer_complete(rhport, 0, 0, XFER_RESULT_SUCCESS, true);
+      break;
+
+    case EP0_STATE_STATUS_IN:
+      if (_dcd.pending_addr) {
+        musb_regs->faddr = _dcd.pending_addr;
+        _dcd.pending_addr = 0;
+      }
+      _dcd.ep0_state = EP0_STATE_IDLE;
+      dcd_event_xfer_complete(rhport, 0x80, 0, XFER_RESULT_SUCCESS, true);
+      break;
+
+    default: break;
   }
 }
 
@@ -620,7 +631,7 @@ void dcd_set_address(uint8_t rhport, uint8_t dev_addr)
   pipe0->buf       = NULL;
   pipe0->length    = 0;
   pipe0->remaining = 0;
-  _dcd.ep0_state   = EP0_STATE_STATUS;
+  _dcd.ep0_state   = EP0_STATE_STATUS_IN;
   /* Send STATUS IN ZLP with DATAEND; host ACK fires the confirmation IRQ. */
   ep_csr->csr0l = MUSB_CSRL0_RXRDYC | MUSB_CSRL0_DATAEND;
 }
@@ -787,6 +798,7 @@ bool dcd_edpt_xfer(uint8_t rhport, uint8_t ep_addr, uint8_t * buffer, uint16_t t
   if (epnum) {
     ret = edpt_n_xfer(rhport, ep_addr, buffer, total_bytes, false, is_isr);
   } else {
+    (void) is_isr;
     ret = edpt0_xfer(rhport, ep_addr, buffer, total_bytes, is_isr);
   }
 
