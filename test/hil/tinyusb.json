@@ -43,7 +43,7 @@
             },
             "flasher": {
                 "name": "jlink",
-                "uid": "000682804350",
+                "uid": "681295394",
                 "args": "-device nrf52840_xxaa"
             }
         },

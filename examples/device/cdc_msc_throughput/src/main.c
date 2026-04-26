@@ -99,9 +99,9 @@ void tud_msc_inquiry_cb(uint8_t lun, uint8_t vendor_id[8], uint8_t product_id[16
   const char vid[] = "TinyUSB";
   const char pid[] = "Mass Storage";
   const char rev[] = "1.0";
-  memcpy(vendor_id,  vid, strlen(vid));
-  memcpy(product_id, pid, strlen(pid));
-  memcpy(product_rev, rev, strlen(rev));
+  (void) strncpy((char*) vendor_id, vid, 8);
+  (void) strncpy((char*) product_id, pid, 16);
+  (void) strncpy((char*) product_rev, rev, 4);
 }
 
 bool tud_msc_test_unit_ready_cb(uint8_t lun) {

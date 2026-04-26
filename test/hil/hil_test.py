@@ -782,7 +782,8 @@ def test_device_cdc_msc_throughput(board):
             pass
 
     # Put tty in raw mode so dd sees pure binary throughput.
-    run_cmd(f'stty -F {tty} raw -echo')
+    rs = run_cmd(f'timeout 30 stty -F {tty} raw -echo')
+    assert rs.returncode == 0, f'stty failed: {rs.stdout.decode()}'
 
     # Payload aim: ~5 s per direction at FS (~830 kB/s), much less at HS.
     msc_count = 2 if is_fs else 16    # bs=1M
