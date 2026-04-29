@@ -26,6 +26,7 @@ ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -b)
+      [[ $# -ge 2 ]] || { echo "error: -b requires a BOARD argument" >&2; exit 1; }
       BOARD="$2"
       ARGS+=("$1" "$2")
       shift 2
@@ -37,9 +38,14 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Setup remote directory
+# Setup remote directory. Use `bash -s` + heredoc so REMOTE_DIR (user-overridable)
+# is passed as a positional parameter and never reinterpreted by the remote shell.
 echo "==> Setting up remote $REMOTE:$REMOTE_DIR"
-ssh "$REMOTE" "rm -rf $REMOTE_DIR && mkdir -p $REMOTE_DIR/test/hil $REMOTE_DIR/examples"
+ssh "$REMOTE" bash -s -- "$REMOTE_DIR" <<'REMOTE'
+set -e
+rm -rf -- "$1"
+mkdir -p -- "$1/test/hil" "$1/examples"
+REMOTE
 
 # Copy HIL test script and config
 echo "==> Copying test scripts"
@@ -60,7 +66,7 @@ if [ -n "$BOARD" ]; then
   BUILD_DIR="$ROOT_DIR/examples/cmake-build-$BOARD"
   if [ ! -d "$BUILD_DIR" ]; then
     echo "Error: build directory not found: $BUILD_DIR"
-    echo "Build first with: cd examples && cmake -DBOARD=$BOARD -G Ninja -B cmake-build-$BOARD .. && cmake --build cmake-build-$BOARD"
+    echo "Build first with: cd examples && cmake -DBOARD=$BOARD -G Ninja -B cmake-build-$BOARD . && cmake --build cmake-build-$BOARD"
     exit 1
   fi
   echo "==> Copying binaries for $BOARD"
@@ -72,7 +78,12 @@ else
   done
 fi
 
-# Run test
+# Run test. Use `bash -s` so REMOTE_DIR + ARGS reach the remote shell as positional
+# parameters; quoting and metacharacters in args are preserved.
 CONFIG_BASENAME="$(basename "$CONFIG")"
 echo "==> Running HIL test on $REMOTE"
-ssh -t "$REMOTE" "cd $REMOTE_DIR && python3 -u test/hil/hil_test.py -B examples ${ARGS[*]} test/hil/$CONFIG_BASENAME"
+ssh "$REMOTE" bash -s -- "$REMOTE_DIR" "${ARGS[@]}" "test/hil/$CONFIG_BASENAME" <<'REMOTE'
+cd -- "$1"
+shift
+exec python3 -u test/hil/hil_test.py -B examples "$@"
+REMOTE

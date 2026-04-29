@@ -64,7 +64,7 @@ python3 tools/metrics_compare_base.py -b raspberry_pi_pico --base-branch v0.18.0
 
 - Single example, single board: ~30 s
 - All examples, single board: ~60-90 s
-- `--ci` (all arm-gcc families, first board each): 4-8 minutes (parallel build)
+- `--ci` (all arm-gcc families, first board each): 4-8 minutes — sequential sweep across boards (Ninja parallelizes within each board, not across)
 
 Use timeouts ≥ 10 minutes (600000 ms) for `--ci`.
 

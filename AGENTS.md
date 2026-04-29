@@ -103,10 +103,10 @@ openocd -f interface/jlink.cfg -f target/stm32h7x.cfg
 openocd -f interface/cmsis-dap.cfg -f target/rp2040.cfg -c "adapter speed 5000"
 ```
 
-**Terminal 2 — connect GDB** (JLink :2331, OpenOCD :3333):
+**Terminal 2 — connect GDB** (replace `<port>` with `2331` for JLinkGDBServer or `3333` for OpenOCD):
 ```bash
 arm-none-eabi-gdb /tmp/build/firmware.elf
-(gdb) target remote :2331
+(gdb) target remote :<port>
 (gdb) monitor reset halt
 (gdb) load
 (gdb) break main         # optional, to stop at entry
