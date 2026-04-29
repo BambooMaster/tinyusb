@@ -232,10 +232,11 @@ int board_uart_write(void const *buf, int len)
             break;
         }
     }
+    return count;
 #else
     (void) buf; (void) len;
+    return -1;
 #endif
-    return count;
 }
 
 // Get current milliseconds
