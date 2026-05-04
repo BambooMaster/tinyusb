@@ -342,7 +342,7 @@ static bool xmit_insert_required_zlp(uint8_t rhport, uint32_t xferred_bytes) {
   TU_LOG_DRV("xmit_insert_required_zlp(%d,%ld)\n", rhport, xferred_bytes);
 
   uint16_t const ep_size = ncm_interface.ep_size;
-  if (xferred_bytes == 0 || xferred_bytes % ep_size != 0) {
+  if (xferred_bytes == 0 || (xferred_bytes & (ep_size-1)) != 0) {
     return false;
   }
 

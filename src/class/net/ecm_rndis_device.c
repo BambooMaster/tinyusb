@@ -48,10 +48,10 @@ typedef struct {
   uint8_t itf_num;      // Index number of Management Interface, +1 for Data Interface
   uint8_t itf_data_alt; // Alternate setting of Data Interface. 0 : inactive, 1 : active
 
-  uint8_t ep_notif;
   uint8_t ep_in;
   uint8_t ep_out;
   uint16_t ep_size;     // bulk endpoint max packet size (IN and OUT assumed equal)
+  uint8_t ep_notif;
 
   bool ecm_mode;
 
@@ -361,7 +361,7 @@ bool netd_xfer_cb(uint8_t rhport, uint8_t ep_addr, xfer_result_t result, uint32_
   /* data transmission finished */
   if (ep_addr == _netd_itf.ep_in) {
     /* TinyUSB requires the class driver to implement ZLP (since ZLP usage is class-specific) */
-    if (xferred_bytes && (0 == (xferred_bytes % _netd_itf.ep_size))) {
+    if (xferred_bytes > 0 && 0 == (xferred_bytes & (_netd_itf.ep_size-1))) {
       do_in_xfer(NULL, 0); /* a ZLP is needed */
     } else {
       /* we're finally finished */

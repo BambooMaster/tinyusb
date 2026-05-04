@@ -221,45 +221,57 @@ static uint8_t const ncm_hs_configuration[] = {
 
 #endif
 
-// Configuration array: RNDIS and CDC-ECM
+// NCM work with all latest OS i.e macos 10.10+, windows 10+, and Linux.
+// For older system Configuration array of RNDIS and CDC-ECM may be needed for better compatibility.
 // - Windows only works with RNDIS
 // - MacOS only works with CDC-ECM
 // - Linux will work on both
-static const uint8_t *const configuration_fs_arr[CONFIG_ID_COUNT] = {
 #if CFG_TUD_ECM_RNDIS
+
+static const uint8_t *const configuration_fs_arr[CONFIG_ID_COUNT] = {
   [CONFIG_ID_RNDIS] = rndis_fs_configuration,
   [CONFIG_ID_ECM]   = ecm_fs_configuration
-#else
-  [CONFIG_ID_NCM] = ncm_fs_configuration
-#endif
 };
 
 #if TUD_OPT_HIGH_SPEED
 static const uint8_t *const configuration_hs_arr[CONFIG_ID_COUNT] = {
-#if CFG_TUD_ECM_RNDIS
   [CONFIG_ID_RNDIS] = rndis_hs_configuration,
   [CONFIG_ID_ECM]   = ecm_hs_configuration
-#else
-  [CONFIG_ID_NCM] = ncm_hs_configuration
-#endif
 };
 
 // Size array for each configuration
 static const uint16_t configuration_sz_arr[CONFIG_ID_COUNT] = {
-#if CFG_TUD_ECM_RNDIS
   [CONFIG_ID_RNDIS] = MAIN_CONFIG_TOTAL_LEN,
   [CONFIG_ID_ECM]   = ALT_CONFIG_TOTAL_LEN
-#else
-  [CONFIG_ID_NCM] = NCM_CONFIG_TOTAL_LEN
-#endif
 };
 
 // Scratch buffer for other speed configuration (sized to hold the largest config)
-#if CFG_TUD_ECM_RNDIS
-  #define MAX_CONFIG_TOTAL_LEN TU_MAX(MAIN_CONFIG_TOTAL_LEN, ALT_CONFIG_TOTAL_LEN)
-#else
-  #define MAX_CONFIG_TOTAL_LEN NCM_CONFIG_TOTAL_LEN
+#define MAX_CONFIG_TOTAL_LEN TU_MAX(MAIN_CONFIG_TOTAL_LEN, ALT_CONFIG_TOTAL_LEN)
 #endif
+
+#else
+
+static const uint8_t *const configuration_fs_arr[CONFIG_ID_COUNT] = {
+  [CONFIG_ID_NCM] = ncm_fs_configuration
+};
+
+#if TUD_OPT_HIGH_SPEED
+static const uint8_t *const configuration_hs_arr[CONFIG_ID_COUNT] = {
+  [CONFIG_ID_NCM] = ncm_hs_configuration
+};
+
+// Size array for each configuration
+static const uint16_t configuration_sz_arr[CONFIG_ID_COUNT] = {
+  [CONFIG_ID_NCM] = NCM_CONFIG_TOTAL_LEN
+};
+
+// Scratch buffer for other speed configuration (sized to hold the largest config)
+#define MAX_CONFIG_TOTAL_LEN NCM_CONFIG_TOTAL_LEN
+#endif
+
+#endif
+
+#if TUD_OPT_HIGH_SPEED
 static uint8_t desc_other_speed_config[MAX_CONFIG_TOTAL_LEN];
 
 // device qualifier: device descriptor fields that differ at other speed
