@@ -945,8 +945,7 @@ static bool invoke_class_control(uint8_t rhport, usbd_class_driver_t const * dri
   return driver->control_xfer_cb(rhport, CONTROL_STAGE_SETUP, request);
 }
 
-// Process a standard request to the device recipient (extracted from
-// process_setup_received for readability; GCC chooses to inline it).
+// Process a standard request to the device recipient.
 static bool process_std_device_request(uint8_t rhport, tusb_control_request_t const * p_request) {
   switch (p_request->bRequest) { //-V2520
     case TUSB_REQ_SET_ADDRESS:
@@ -1068,6 +1067,8 @@ static bool process_setup_received(uint8_t rhport, tusb_control_request_t const 
   ctrl_xfer->total_xferred = 0;
   ctrl_xfer->data_len = 0;
   ctrl_xfer->complete_cb = NULL;
+
+  p_request = &ctrl_xfer->request; // re-direct request pointer to internal copy (modifiable for hacking)
   TU_ASSERT(p_request->bmRequestType_bit.type < TUSB_REQ_TYPE_INVALID);
 
   // Vendor request
@@ -1289,20 +1290,18 @@ static bool process_get_descriptor(uint8_t rhport, tusb_control_request_t const 
     case TUSB_DESC_DEVICE: {
       TU_LOG_USBD(" Device\r\n");
 
-      void* desc_device = (void*) (uintptr_t) tud_descriptor_device_cb();
+      void *desc_device = (void *)(uintptr_t)tud_descriptor_device_cb();
       TU_ASSERT(desc_device);
 
       // Only response with exactly 1 Packet if: not addressed and host requested more data than device descriptor has.
       // This only happens with the very first get device descriptor and EP0 size = 8 or 16.
       if ((CFG_TUD_ENDPOINT0_SIZE < sizeof(tusb_desc_device_t)) && !_usbd_dev.addressed &&
-          ((tusb_control_request_t const*) p_request)->wLength > sizeof(tusb_desc_device_t)) {
+          p_request->wLength > sizeof(tusb_desc_device_t)) {
         // Hack here: we modify the request length to prevent usbd_control response with zlp
         // since we are responding with 1 packet & less data than wLength.
-        tusb_control_request_t mod_request = *p_request;
-        mod_request.wLength = CFG_TUD_ENDPOINT0_SIZE;
-
-        return tud_control_xfer(rhport, &mod_request, desc_device, CFG_TUD_ENDPOINT0_SIZE);
-      }else {
+        ((tusb_control_request_t *)(uintptr_t)p_request)->wLength = CFG_TUD_ENDPOINT0_SIZE;
+        return tud_control_xfer(rhport, p_request, desc_device, CFG_TUD_ENDPOINT0_SIZE);
+      } else {
         return tud_control_xfer(rhport, p_request, desc_device, sizeof(tusb_desc_device_t));
       }
     }
