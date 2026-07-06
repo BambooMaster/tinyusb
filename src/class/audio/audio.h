@@ -1,26 +1,7 @@
 /*
- * The MIT License (MIT)
- *
- * Copyright (c) 2019 Ha Thach (tinyusb.org)
- * Copyright (c) 2020 Reinhard Panhuber
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
+ * SPDX-FileCopyrightText: Copyright (c) 2019 Ha Thach (tinyusb.org)
+ * SPDX-FileCopyrightText: Copyright (c) 2020 Reinhard Panhuber
+ * SPDX-License-Identifier: MIT
  *
  * This file is part of the TinyUSB stack.
  */
@@ -490,10 +471,19 @@ typedef struct TU_ATTR_PACKED {
   uint8_t bDescriptorType; ///< Descriptor Type. Value: TUSB_DESC_ENDPOINT.
   uint8_t bEndpointAddress;///< The address of the endpoint on the USB device described by this descriptor.
   struct TU_ATTR_PACKED {
+#if (TU_BITFIELD_ORDER == TU_BITFIELD_LE)
     uint8_t xfer  : 2;        // Control, ISO, Bulk, Interrupt
     uint8_t sync  : 2;        // None, Asynchronous, Adaptive, Synchronous
     uint8_t usage : 2;        // Data, Feedback, Implicit feedback
     uint8_t       : 2;
+#elif (TU_BITFIELD_ORDER == TU_BITFIELD_BE)
+    uint8_t       : 2;
+    uint8_t usage : 2;        // Data, Feedback, Implicit feedback
+    uint8_t sync  : 2;        // None, Asynchronous, Adaptive, Synchronous
+    uint8_t xfer  : 2;        // Control, ISO, Bulk, Interrupt
+#else
+  #error "Please define TU_BITFIELD_ORDER as TU_BITFIELD_LE or TU_BITFIELD_BE"
+#endif
   } bmAttributes;
   uint16_t wMaxPacketSize; ///< Maximum packet size this endpoint is capable of sending or receiving when this configuration is selected.
   uint8_t bInterval;       ///< Interval for polling endpoint for data transfers.
@@ -1176,29 +1166,6 @@ typedef struct TU_ATTR_PACKED {
   uint8_t bLockDelayUnits;   ///< Indicates the units used for the wLockDelay field. See: audio20_cs_as_iso_data_ep_lock_delay_unit_t.
   uint16_t wLockDelay;       ///< Indicates the time it takes this endpoint to reliably lock its internal clock recovery circuitry. Units used depend on the value of the bLockDelayUnits field.
 } audio20_desc_cs_as_iso_data_ep_t;
-
-// 5.2.2 Control Request Layout
-typedef struct TU_ATTR_PACKED {
-  union {
-    struct TU_ATTR_PACKED {
-      uint8_t recipient : 5;///< Recipient type tusb_request_recipient_t.
-      uint8_t type : 2;     ///< Request type tusb_request_type_t.
-      uint8_t direction : 1;///< Direction type. tusb_dir_t
-    } bmRequestType_bit;
-
-    uint8_t bmRequestType;
-  };
-
-  uint8_t bRequest;///< Request type audio_cs_req_t
-  uint8_t bChannelNumber;
-  uint8_t bControlSelector;
-  union {
-    uint8_t bInterface;
-    uint8_t bEndpoint;
-  };
-  uint8_t bEntityID;
-  uint16_t wLength;
-} audio20_control_request_t;
 
 //// 5.2.3 Control Request Parameter Block Layout
 

@@ -1,26 +1,7 @@
 /*
- * The MIT License (MIT)
- *
- * Copyright (c) 2019 Ha Thach (tinyusb.org)
- * Copyright (c) 2021 Koji KITAYAMA
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
+ * SPDX-FileCopyrightText: Copyright (c) 2019 Ha Thach (tinyusb.org)
+ * SPDX-FileCopyrightText: Copyright (c) 2021 Koji Kitayama
+ * SPDX-License-Identifier: MIT
  *
  * This file is part of the TinyUSB stack.
  */
@@ -99,8 +80,7 @@ int tud_video_commit_cb(uint_fast8_t ctl_idx, uint_fast8_t stm_idx,
  * @param[in]   stm_idx       Destination streaming interface index
  * @param[out]  payload_buf   Payload storage buffer (target buffer for requested data)
  * @param[in]   payload_size  Size of payload_buf (requested data size)
- * @param[in]   offset        Current byte offset relative to given bufsize from tud_video_n_frame_xfer (framesize)
- * @return video_error_code_t */
+ * @param[in]   offset        Current byte offset relative to given bufsize from tud_video_n_frame_xfer (framesize)  */
 void tud_video_prepare_payload_cb(uint_fast8_t ctl_idx, uint_fast8_t stm_idx, tud_video_payload_request_t* request);
 
 //--------------------------------------------------------------------+

@@ -88,6 +88,14 @@ enum {
   // nRF5x ISO can only be endpoint 8
   #define EPNUM_AUDIO   0x08
 
+#elif TU_CHECK_MCU(OPT_MCU_MAX32650, OPT_MCU_MAX32666, OPT_MCU_MAX32690, OPT_MCU_MAX78002)
+  // Put audio iso on EP>=8 so the 2048/4096-byte FIFOs can back double packet buffering
+  #define EPNUM_AUDIO   0x0A
+
+#elif TU_CHECK_MCU(OPT_MCU_CH32V20X, OPT_MCU_CH32V307)
+  // Only EP3 is available for ISO
+  #define EPNUM_AUDIO   0x03
+
 #else
   #define EPNUM_AUDIO   0x01
 #endif
@@ -119,8 +127,8 @@ TU_VERIFY_STATIC(sizeof(desc2_uac2_configuration) == CONFIG_UAC2_TOTAL_LEN, "Inc
 
 // device qualifier is mostly similar to device descriptor since we don't change configuration based on speed
 tusb_desc_device_qualifier_t const desc_device_qualifier = {
-  .bLength            = sizeof(tusb_desc_device_t),
-  .bDescriptorType    = TUSB_DESC_DEVICE,
+  .bLength            = sizeof(tusb_desc_device_qualifier_t),
+  .bDescriptorType    = TUSB_DESC_DEVICE_QUALIFIER,
   .bcdUSB             = 0x0200,
 
   .bDeviceClass       = TUSB_CLASS_MISC,

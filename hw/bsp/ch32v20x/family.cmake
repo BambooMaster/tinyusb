@@ -61,8 +61,9 @@ function(family_add_board BOARD_TARGET)
 
   if (RHPORT_DEVICE EQUAL 0)
     target_compile_definitions(${BOARD_TARGET} PUBLIC CFG_TUD_WCH_USBIP_FSDEV=1)
+    target_compile_definitions(${BOARD_TARGET} PUBLIC CFG_TUH_WCH_USBIP_FSDEV=1)
   elseif (RHPORT_DEVICE EQUAL 1)
-    target_compile_definitions(${BOARD_TARGET} PUBLIC CFG_TUH_WCH_USBIP_USBFS=1)
+    target_compile_definitions(${BOARD_TARGET} PUBLIC CFG_TUD_WCH_USBIP_USBFS=1)
   else()
     message(FATAL_ERROR "Invalid RHPORT_DEVICE ${RHPORT_DEVICE}")
   endif()
@@ -93,6 +94,7 @@ function(family_configure_example TARGET RTOS)
     ${TOP}/src/portable/wch/dcd_ch32_usbfs.c
     ${TOP}/src/portable/wch/hcd_ch32_usbfs.c
     ${TOP}/src/portable/st/stm32_fsdev/dcd_stm32_fsdev.c
+    ${TOP}/src/portable/st/stm32_fsdev/fsdev_common.c
     ${STARTUP_FILE_${CMAKE_C_COMPILER_ID}}
     )
   target_include_directories(${TARGET} PUBLIC
