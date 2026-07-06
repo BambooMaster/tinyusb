@@ -1,25 +1,6 @@
 /*
- * The MIT License (MIT)
- *
- * Copyright (c) 2019 Ha Thach (tinyusb.org)
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
+ * SPDX-FileCopyrightText: Copyright (c) 2019 Ha Thach (tinyusb.org)
+ * SPDX-License-Identifier: MIT
  *
  * This file is part of the TinyUSB stack.
  */
@@ -115,13 +96,13 @@ TU_ATTR_ALWAYS_INLINE static inline bool send_csw(mscd_interface_t* p_msc) {
   p_msc->csw.data_residue = p_msc->cbw.total_bytes - p_msc->xferred_len;
   p_msc->stage = MSC_STAGE_STATUS_SENT;
   memcpy(_mscd_epbuf.buf, &p_msc->csw, sizeof(msc_csw_t)); //-V1086
-  return usbd_edpt_xfer(rhport, p_msc->ep_in , _mscd_epbuf.buf, sizeof(msc_csw_t));
+  return usbd_edpt_xfer(rhport, p_msc->ep_in , _mscd_epbuf.buf, sizeof(msc_csw_t), false);
 }
 
 TU_ATTR_ALWAYS_INLINE static inline bool prepare_cbw(mscd_interface_t* p_msc) {
   uint8_t rhport = p_msc->rhport;
   p_msc->stage = MSC_STAGE_CMD;
-  return usbd_edpt_xfer(rhport, p_msc->ep_out,  _mscd_epbuf.buf, sizeof(msc_cbw_t));
+  return usbd_edpt_xfer(rhport, p_msc->ep_out,  _mscd_epbuf.buf, sizeof(msc_cbw_t), false);
 }
 
 static void fail_scsi_op(mscd_interface_t* p_msc, uint8_t status) {
@@ -537,7 +518,7 @@ bool mscd_xfer_cb(uint8_t rhport, uint8_t ep_addr, xfer_result_t event, uint32_t
           } else {
             // Didn't check for case 9 (Ho > Dn), which requires examining scsi command first
             // but it is OK to just receive data then responded with failed status
-            TU_ASSERT(usbd_edpt_xfer(rhport, p_msc->ep_out, _mscd_epbuf.buf, (uint16_t) p_msc->total_len));
+            TU_ASSERT(usbd_edpt_xfer(rhport, p_msc->ep_out, _mscd_epbuf.buf, (uint16_t) p_msc->total_len, false));
           }
         } else {
           // First process if it is a built-in commands
@@ -545,7 +526,8 @@ bool mscd_xfer_cb(uint8_t rhport, uint8_t ep_addr, xfer_result_t event, uint32_t
 
           // Invoke user callback if not built-in
           if ((resplen < 0) && (p_msc->sense_key == 0)) {
-            resplen = tud_msc_scsi_cb(p_cbw->lun, p_cbw->command, _mscd_epbuf.buf, (uint16_t)p_msc->total_len);
+            resplen = tud_msc_scsi_cb(p_cbw->lun, p_cbw->command, _mscd_epbuf.buf,
+                                      (uint16_t) tu_min32(p_msc->total_len, CFG_TUD_MSC_EP_BUFSIZE));
           }
 
           if (resplen < 0) {
@@ -569,7 +551,7 @@ bool mscd_xfer_cb(uint8_t rhport, uint8_t ep_addr, xfer_result_t event, uint32_t
             } else {
               // cannot return more than host expect
               p_msc->total_len = tu_min32((uint32_t)resplen, p_cbw->total_bytes);
-              TU_ASSERT(usbd_edpt_xfer(rhport, p_msc->ep_in, _mscd_epbuf.buf, (uint16_t) p_msc->total_len));
+              TU_ASSERT(usbd_edpt_xfer(rhport, p_msc->ep_in, _mscd_epbuf.buf, (uint16_t) p_msc->total_len, false));
             }
           }
         }
@@ -646,7 +628,11 @@ bool mscd_xfer_cb(uint8_t rhport, uint8_t ep_addr, xfer_result_t event, uint32_t
             break;
         }
 
-        TU_ASSERT(prepare_cbw(p_msc));
+        if (!usbd_edpt_stalled(rhport, p_msc->ep_out)) {
+          TU_ASSERT(prepare_cbw(p_msc));
+        } else {
+          p_msc->stage = MSC_STAGE_CMD;
+        }
       } else {
         // Any xfer ended here is considered unknown error, ignore it
         TU_LOG1("  Warning expect SCSI Status but received unknown data\r\n");
@@ -866,7 +852,7 @@ static void proc_read10_cmd(mscd_interface_t* p_msc) {
 static void proc_read_io_data(mscd_interface_t* p_msc, int32_t nbytes) {
   const uint8_t rhport = p_msc->rhport;
   if (nbytes > 0) {
-    TU_ASSERT(usbd_edpt_xfer(rhport, p_msc->ep_in, _mscd_epbuf.buf, (uint16_t) nbytes),);
+    TU_ASSERT(usbd_edpt_xfer(rhport, p_msc->ep_in, _mscd_epbuf.buf, (uint16_t) nbytes, false),);
   } else {
     // nbytes is status
     switch (nbytes) {
@@ -902,7 +888,7 @@ static void proc_write10_cmd(mscd_interface_t* p_msc) {
   // remaining bytes capped at class buffer
   uint16_t nbytes = (uint16_t)tu_min32(CFG_TUD_MSC_EP_BUFSIZE, p_cbw->total_bytes - p_msc->xferred_len);
   // Write10 callback will be called later when usb transfer complete
-  TU_ASSERT(usbd_edpt_xfer(p_msc->rhport, p_msc->ep_out, _mscd_epbuf.buf, nbytes),);
+  TU_ASSERT(usbd_edpt_xfer(p_msc->rhport, p_msc->ep_out, _mscd_epbuf.buf, nbytes, false),);
 }
 
 // process new data arrived from WRITE10

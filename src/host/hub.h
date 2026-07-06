@@ -1,25 +1,6 @@
 /*
- * The MIT License (MIT)
- *
- * Copyright (c) 2019 Ha Thach (tinyusb.org)
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
+ * SPDX-FileCopyrightText: Copyright (c) 2019 Ha Thach (tinyusb.org)
+ * SPDX-License-Identifier: MIT
  *
  * This file is part of the TinyUSB stack.
  */
@@ -91,6 +72,13 @@ enum {
   HUB_CHARS_OVER_CURRENT_GLOBAL = 0,
   HUB_CHARS_OVER_CURRENT_INDIVIDUAL = 1,
 };
+
+// Hub Interface Protocol (USB 2.0 spec Table 11-16)
+typedef enum {
+  HUB_PROTOCOL_FULL_SPEED     = 0, // Full speed hub
+  HUB_PROTOCOL_HIGH_SPEED_STT = 1, // Hi-speed hub with single TT
+  HUB_PROTOCOL_HIGH_SPEED_MTT = 2, // Hi-speed hub with multiple TTs
+} hub_protocol_t;
 
 typedef struct TU_ATTR_PACKED{
   uint8_t  bLength           ; ///< Size of descriptor
@@ -206,12 +194,12 @@ bool hub_clear_feature(uint8_t hub_addr, uint8_t feature, tuh_xfer_cb_t complete
 //--------------------------------------------------------------------+
 // Internal Class Driver API
 //--------------------------------------------------------------------+
-bool hub_init       (void);
-bool hub_deinit     (void);
-bool hub_open       (uint8_t rhport, uint8_t dev_addr, tusb_desc_interface_t const *itf_desc, uint16_t max_len);
-bool hub_set_config (uint8_t daddr, uint8_t itf_num);
-bool hub_xfer_cb    (uint8_t daddr, uint8_t ep_addr, xfer_result_t event, uint32_t xferred_bytes);
-void hub_close      (uint8_t dev_addr);
+bool     hub_init(void);
+bool     hub_deinit(void);
+uint16_t hub_open(uint8_t rhport, uint8_t dev_addr, const tusb_desc_interface_t *itf_desc, uint16_t max_len);
+bool     hub_set_config(uint8_t daddr, uint8_t itf_num);
+bool     hub_xfer_cb(uint8_t daddr, uint8_t ep_addr, xfer_result_t event, uint32_t xferred_bytes);
+void     hub_close(uint8_t dev_addr);
 
 #ifdef __cplusplus
  }

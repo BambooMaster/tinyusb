@@ -1,25 +1,6 @@
 /*
- * The MIT License (MIT)
- *
- * Copyright (c) 2019 Ha Thach (tinyusb.org)
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
+ * SPDX-FileCopyrightText: Copyright (c) 2019 Ha Thach (tinyusb.org)
+ * SPDX-License-Identifier: MIT
  *
  * This file is part of the TinyUSB stack.
  */
@@ -147,7 +128,7 @@ typedef struct TU_ATTR_PACKED {
 
 TU_VERIFY_STATIC(sizeof(musb_ep_csr_t) == 16, "size is not correct");
 
-typedef struct TU_ATTR_PACKED {
+typedef struct {
   //------------- Common -------------//
   __IO uint8_t  faddr;             // 0x00: FADDR
   union {
@@ -300,7 +281,7 @@ TU_VERIFY_STATIC(sizeof(musb_regs_t) == 0x350, "size is not correct");
 // Helper
 //--------------------------------------------------------------------+
 TU_ATTR_ALWAYS_INLINE static inline musb_ep_csr_t* get_ep_csr(musb_regs_t* musb_regs, unsigned epnum) {
-  musb_regs->index = epnum;
+  musb_regs->index = (uint8_t)epnum;
   return &musb_regs->indexed_csr;
 }
 
@@ -336,7 +317,7 @@ TU_ATTR_ALWAYS_INLINE static inline musb_ep_csr_t* get_ep_csr(musb_regs_t* musb_
 #define MUSB_CSRL_CLEAR_DATA_TOGGLE(_rx) (1u << ((_rx) ? 7 : 6))
 
 // 0x13, 0x17: TX/RX CSRH
-#define MUSB_CSRH_DISABLE_DOUBLE_PACKET(_rx) (1u << 1)
+#define MUSB_CSRH_DISABLE_DOUBLE_PACKET      (1u << 1)
 #define MUSB_CSRH_TX_MODE                    (1u << 5) // 1 = TX, 0 = RX. only relevant for SHARED FIFO
 #define MUSB_CSRH_ISO                        (1u << 6)
 
@@ -565,6 +546,16 @@ TU_ATTR_ALWAYS_INLINE static inline musb_ep_csr_t* get_ep_csr(musb_regs_t* musb_
 //*****************************************************************************
 #define MUSB_NAKLMT_NAKLMT_M     0x001F  // EP0 NAK Limit
 #define MUSB_NAKLMT_NAKLMT_S     0
+
+//*****************************************************************************
+//
+// The following are defines for the bit fields in the MUSB_O_TXMAXP / MUSB_O_RXMAXP
+// registers. Bits [10:0] carry the maximum packet size; bits [15:11] carry
+// numpackminus1 (HB-iso / HS-bulk multiplier - 1).
+//
+//*****************************************************************************
+#define MUSB_TXMAXP_PACKET_SIZE_M  0x07FFu
+#define MUSB_RXMAXP_PACKET_SIZE_M  0x07FFu
 
 //*****************************************************************************
 //

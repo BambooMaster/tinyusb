@@ -1,25 +1,6 @@
 /*
- * The MIT License (MIT)
- *
- * Copyright (c) 2019 Ha Thach (tinyusb.org)
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
+ * SPDX-FileCopyrightText: Copyright (c) 2019 Ha Thach (tinyusb.org)
+ * SPDX-License-Identifier: MIT
  *
  * This file is part of the TinyUSB stack.
  */
@@ -329,6 +310,39 @@ TU_ATTR_ALWAYS_INLINE static inline void tu_unaligned_write16(void *mem, uint16_
 
 #endif
 
+// scatter read 4 bytes from two buffers (LE). Parameter are not checked
+TU_ATTR_ALWAYS_INLINE static inline uint32_t tu_scatter_read32(const uint8_t *buf1, uint8_t len1, const uint8_t *buf2,
+                                                               uint8_t len2) {
+  uint32_t result = 0;
+  uint8_t  shift  = 0;
+
+  for (uint8_t i = 0; i < len1; ++i) {
+    result |= ((uint32_t)buf1[i]) << shift;
+    shift += 8;
+  }
+
+  for (uint8_t i = 0; i < len2; ++i) {
+    result |= ((uint32_t)buf2[i]) << shift;
+    shift += 8;
+  }
+
+  return result;
+}
+
+// scatter write 4 bytes (LE) to two buffers. Parameter are not checked
+TU_ATTR_ALWAYS_INLINE static inline void tu_scatter_write32(uint32_t value, uint8_t *buf1, uint8_t len1,
+                                                            uint8_t *buf2, uint8_t len2) {
+  for (uint8_t i = 0; i < len1; ++i) {
+    buf1[i] = (uint8_t)(value & 0xFF);
+    value >>= 8;
+  }
+
+  for (uint8_t i = 0; i < len2; ++i) {
+    buf2[i] = (uint8_t)(value & 0xFF);
+    value >>= 8;
+  }
+}
+
 //--------------------------------------------------------------------+
 // Descriptor helper
 //--------------------------------------------------------------------+
@@ -355,10 +369,7 @@ TU_ATTR_ALWAYS_INLINE static inline uint8_t tu_desc_subtype(void const* desc) {
 }
 
 TU_ATTR_ALWAYS_INLINE static inline bool tu_desc_in_bounds(const uint8_t *p_desc, const uint8_t *desc_end) {
-  if (p_desc >= desc_end) {
-    return false;
-  }
-  return tu_desc_next(p_desc) <= desc_end;
+  return p_desc < desc_end && tu_desc_next(p_desc) <= desc_end;
 }
 
 // find descriptor that match byte1 (type)

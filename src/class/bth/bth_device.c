@@ -1,25 +1,7 @@
 /*
- * The MIT License (MIT)
- *
- * Copyright (c) 2020 Jerzy Kasenberg
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
+ * SPDX-FileCopyrightText: Copyright (c) 2020 Jerzy Kasenberg
+ * SPDX-FileCopyrightText: Copyright (c) 2020 Ha Thach (tinyusb.org)
+ * SPDX-License-Identifier: MIT
  *
  * This file is part of the TinyUSB stack.
  */
@@ -67,7 +49,7 @@ static bool bt_tx_data(uint8_t ep, void *data, uint16_t len) {
   // skip if previous transfer not complete
   TU_VERIFY(!usbd_edpt_busy(rhport, ep));
 
-  TU_ASSERT(usbd_edpt_xfer(rhport, ep, data, len));
+  TU_ASSERT(usbd_edpt_xfer(rhport, ep, data, len, false));
 
   return true;
 }
@@ -169,7 +151,7 @@ uint16_t btd_open(uint8_t rhport, tusb_desc_interface_t const *itf_desc, uint16_
   itf_desc = (tusb_desc_interface_t const *) tu_desc_next(tu_desc_next(desc_ep));
 
   // Prepare for incoming data from host
-  TU_ASSERT(usbd_edpt_xfer(rhport, _btd_itf.ep_acl_out, _btd_epbuf.epout_buf, CFG_TUD_BTH_DATA_EPSIZE), 0);
+  TU_ASSERT(usbd_edpt_xfer(rhport, _btd_itf.ep_acl_out, _btd_epbuf.epout_buf, CFG_TUD_BTH_DATA_EPSIZE, false), 0);
 
   drv_len = hci_itf_size;
 
@@ -272,7 +254,7 @@ bool btd_xfer_cb(uint8_t rhport, uint8_t ep_addr, xfer_result_t result,
     tud_bt_acl_data_received_cb(_btd_epbuf.epout_buf, xferred_bytes);
 
     // prepare for next data
-    TU_ASSERT(usbd_edpt_xfer(rhport, _btd_itf.ep_acl_out, _btd_epbuf.epout_buf, CFG_TUD_BTH_DATA_EPSIZE));
+    TU_ASSERT(usbd_edpt_xfer(rhport, _btd_itf.ep_acl_out, _btd_epbuf.epout_buf, CFG_TUD_BTH_DATA_EPSIZE, false));
   } else if (ep_addr == _btd_itf.ep_ev) {
     tud_bt_event_sent_cb((uint16_t) xferred_bytes);
   } else if (ep_addr == _btd_itf.ep_acl_in) {

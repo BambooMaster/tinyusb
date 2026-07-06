@@ -1,25 +1,6 @@
 /*
- * The MIT License (MIT)
- *
- * Copyright (c) 2019 Ha Thach (tinyusb.org)
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
+ * SPDX-FileCopyrightText: Copyright (c) 2019 Ha Thach (tinyusb.org)
+ * SPDX-License-Identifier: MIT
  *
  * This file is part of the TinyUSB stack.
  */
@@ -40,8 +21,12 @@
 #include "ehci.h"
 
 // NXP specific fixes
-#if TU_CHECK_MCU(OPT_MCU_MIMXRT1XXX, OPT_MCU_LPC55, OPT_MCU_MCXN9)
+#if TU_CHECK_MCU(OPT_MCU_MIMXRT1XXX, OPT_MCU_LPC55, OPT_MCU_MCXN9, OPT_MCU_RW61X)
 #include "fsl_device_registers.h"
+#endif
+
+#if TU_CHECK_MCU(OPT_MCU_HPM)
+#include "ci_hs_hpm.h"
 #endif
 
 //--------------------------------------------------------------------+
@@ -237,6 +222,14 @@ void hcd_port_reset(uint8_t rhport) {
   // mask out Write-1-to-Clear bits
   uint32_t portsc = regs->portsc & ~EHCI_PORTSC_MASK_W1C;
 
+#if TU_CHECK_MCU(OPT_MCU_HPM)
+  if (usb_phy_get_line_state((USB_Type *)CI_HS_REG(rhport)) == usb_line_state2) {
+      portsc |= USB_PORTSC1_STS_MASK;
+  } else {
+      portsc &= ~USB_PORTSC1_STS_MASK;
+  }
+#endif
+
   // EHCI Table 2-16 PortSC
   // when software writes Port Reset bit to a one, it must also write a zero to the Port Enable bit.
   portsc &= ~(EHCI_PORTSC_MASK_PORT_EANBLED);
@@ -399,17 +392,22 @@ bool ehci_init(uint8_t rhport, uint32_t capability_reg, uint32_t operatial_reg)
   return true;
 }
 
-#if 0
-static void ehci_stop(uint8_t rhport) {
+bool ehci_deinit(uint8_t rhport) {
   (void) rhport;
 
   ehci_registers_t* regs = ehci_data.regs;
+
+  // Disable all the interrupt
+  regs->inten  = 0;
+
+  // Disable schedules
   regs->command_bm.run_stop = 0;
 
   // USB Spec: controller has to stop within 16 uframe = 2 frames
   while( regs->status_bm.hc_halted == 0 ) {}
+
+  return true;
 }
-#endif
 
 //--------------------------------------------------------------------+
 // Endpoint API

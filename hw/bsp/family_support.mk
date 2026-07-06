@@ -7,12 +7,10 @@ to_upper = $(subst a,A,$(subst b,B,$(subst c,C,$(subst d,D,$(subst e,E,$(subst f
 
 #-------------------------------------------------------------
 # Toolchain
-# Can be changed via TOOLCHAIN=gcc|iar or CC=arm-none-eabi-gcc|iccarm|clang
+# Can be changed via TOOLCHAIN=gcc|clang or CC=arm-none-eabi-gcc|clang
 #-------------------------------------------------------------
 ifneq (,$(findstring clang,$(CC)))
   TOOLCHAIN = clang
-else ifneq (,$(findstring iccarm,$(CC)))
-  TOOLCHAIN = iar
 else ifneq (,$(findstring gcc,$(CC)))
   TOOLCHAIN = gcc
 endif
@@ -131,12 +129,25 @@ ifdef CPU_CORE
   include ${TOP}/examples/build_system/make/cpu/$(CPU_CORE).mk
 endif
 
-# toolchain specific
-include ${TOP}/examples/build_system/make/toolchain/arm_$(TOOLCHAIN).mk
+# toolchain specific - select based on CPU architecture
+ifdef CPU_CORE
+  ifneq (,$(filter cortex% arm%,$(CPU_CORE)))
+    # ARM/Cortex architecture
+    include ${TOP}/examples/build_system/make/toolchain/arm_$(TOOLCHAIN).mk
+  else ifneq (,$(filter rv%,$(CPU_CORE)))
+    # RISC-V architecture
+    include ${TOP}/examples/build_system/make/toolchain/riscv_$(TOOLCHAIN).mk
+  else
+    $(error Unsupported CPU_CORE architecture: $(CPU_CORE). Must start with cortex, arm, or rv)
+  endif
+else
+  # Default to ARM if CPU_CORE not specified
+  include ${TOP}/examples/build_system/make/toolchain/arm_$(TOOLCHAIN).mk
+endif
 
 #---------------------- FreeRTOS -----------------------
 FREERTOS_SRC = lib/FreeRTOS-Kernel
-FREERTOS_PORTABLE_PATH = $(FREERTOS_SRC)/portable/$(if $(findstring iar,$(TOOLCHAIN)),IAR,GCC)
+FREERTOS_PORTABLE_PATH = $(FREERTOS_SRC)/portable/GCC
 
 ifeq ($(RTOS),freertos)
 	SRC_C += \
@@ -155,13 +166,14 @@ ifeq ($(RTOS),freertos)
 	CFLAGS += -DCFG_TUSB_OS=OPT_OS_FREERTOS
 
 	# Suppress FreeRTOSConfig.h warnings
-	CFLAGS_GCC += -Wno-error=redundant-decls
+	CFLAGS += -Wno-error=redundant-decls
 
 	# Suppress FreeRTOS source warnings
-	CFLAGS_GCC += -Wno-error=cast-qual
+	CFLAGS += -Wno-error=cast-qual
+	CFLAGS += -Wno-error=null-dereference
 
 	# FreeRTOS (lto + Os) linker issue
-	LDFLAGS_GCC += -Wl,--undefined=vTaskSwitchContext
+	LDFLAGS += -Wl,--undefined=vTaskSwitchContext
 endif
 
 #---------------- Helper ----------------

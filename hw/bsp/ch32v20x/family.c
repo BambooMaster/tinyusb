@@ -85,7 +85,7 @@ static uint32_t SysTick_Config(uint32_t ticks) {
   return 0;
 }
 
-uint32_t board_millis(void) {
+uint32_t tusb_time_millis_api(void) {
   return system_ticks;
 }
 #endif
@@ -207,14 +207,19 @@ int board_uart_read(uint8_t *buf, int len) {
 
 int board_uart_write(void const *buf, int len) {
 #ifdef UART_DEV
-  const char *bufc = (const char *) buf;
-  for (int i = 0; i < len; i++) {
-    while (USART_GetFlagStatus(UART_DEV, USART_FLAG_TC) == RESET);
-    USART_SendData(UART_DEV, *bufc++);
+  uint8_t const *p = (uint8_t const *) buf;
+  int count = 0;
+  while (count < len) {
+    if (USART_GetFlagStatus(UART_DEV, USART_FLAG_TC) != RESET) {
+      USART_SendData(UART_DEV, p[count]);
+      count++;
+    } else {
+      break;
+    }
   }
+  return count;
 #else
   (void) buf; (void) len;
+  return -1;
 #endif
-
-  return len;
 }
