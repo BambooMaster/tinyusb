@@ -156,8 +156,6 @@ uint8_t const desc_uac1_configuration[] = {
 
 TU_VERIFY_STATIC(sizeof(desc_uac1_configuration) == CONFIG_UAC1_TOTAL_LEN, "Incorrect size");
 
-#if TUD_OPT_HIGH_SPEED
-
 #if CFG_AUDIO_DEBUG
   #define CONFIG_UAC2_TOTAL_LEN    	(TUD_CONFIG_DESC_LEN + TUD_AUDIO20_SPEAKER_STEREO_FB_DESC_LEN + TUD_HID_DESC_LEN)
 #else
@@ -178,6 +176,8 @@ uint8_t const desc_uac2_configuration[] = {
 };
 
 TU_VERIFY_STATIC(sizeof(desc_uac2_configuration) == CONFIG_UAC2_TOTAL_LEN, "Incorrect size");
+
+#if TUD_OPT_HIGH_SPEED
 
 // device qualifier is mostly similar to device descriptor since we don't change configuration based on speed
 tusb_desc_device_qualifier_t const desc_device_qualifier = {
@@ -227,7 +227,7 @@ uint8_t const * tud_descriptor_configuration_cb(uint8_t index) {
     return desc_uac2_configuration;
   }
 #else
-    return desc_uac1_configuration;
+    return desc_uac2_configuration;
 #endif
 }
 
