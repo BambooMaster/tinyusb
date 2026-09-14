@@ -312,7 +312,7 @@ static bool audio10_get_req_entity(uint8_t rhport, tusb_control_request_t const 
 // UAC2 Helper Functions
 //--------------------------------------------------------------------+
 
-#if TUD_OPT_HIGH_SPEED
+#if 1
 // List of supported sample rates for UAC2
 const uint32_t sample_rates[] = {44100, 48000, 88200, 96000};
 
@@ -515,7 +515,7 @@ bool tud_audio_set_req_entity_cb(uint8_t rhport, tusb_control_request_t const *p
 
   if (tud_audio_version() == 1) {
     return audio10_set_req_entity(p_request, buf);
-#if TUD_OPT_HIGH_SPEED
+#if 1
   } else if (tud_audio_version() == 2) {
     return audio20_set_req_entity(p_request, buf);
 #endif
@@ -530,7 +530,7 @@ bool tud_audio_get_req_entity_cb(uint8_t rhport, tusb_control_request_t const *p
 
   if (tud_audio_version() == 1) {
     return audio10_get_req_entity(rhport, p_request);
-#if TUD_OPT_HIGH_SPEED
+#if 1
   } else if (tud_audio_version() == 2) {
     return audio20_get_req_entity(rhport, p_request);
 #endif
